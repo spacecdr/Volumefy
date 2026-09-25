@@ -8,6 +8,8 @@ Configurazione: Espressif32 6.5.0, Arduino-ESP32 2.0.14, NimBLE-Arduino 1.4.3, I
 
 La compilazione locale è stata bloccata prima della compilazione C++ dalla toolchain Intel GCC 8 (`Bad CPU type in executable`) sul Mac ARM. La precedente build solo BLE non valida il firmware aggiornato. Per verificare il codice aggiornato è stato aggiunto il workflow Linux [Firmware](https://github.com/spacecdr/Volumefy/actions/workflows/firmware.yml), che esegue `pio run -e esp32-c3-devkitm-1`.
 
+**Build Linux superata** il 25 settembre 2026 sul commit `2c09415`: [esecuzione 36189901076](https://github.com/spacecdr/Volumefy/actions/runs/36189901076). RAM **46.028 byte / 327.680 (14,0%)**, flash **1.015.998 byte / 1.310.720 (77,5%)**, entro lo slot OTA. Un warning nel core Arduino esterno `esp32-hal-uart.c` (ritorno senza valore); nessun errore. Nessun upload hardware.
+
 ## Sito e anteprima
 
 Il generatore `python3 tools/render_panel.py` compila un adattatore C++17 host ed esegue il vero `handleRoot()` con stato dimostrativo. Questo verifica il rendering HTML, non la compilazione per ESP32 o il backend.
