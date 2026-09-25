@@ -1,93 +1,95 @@
-# Volumefy
+# Volumefy · BLE + IR
 
-Una manopola per il volume. Un click per il silenzio.
+Una manopola per il volume. Un click per il silenzio. Due modi per controllare l'audio.
 
-Progetto di controller Bluetooth con **ESP32-C3 SuperMini** e **KY-040**, pensato per comandare volume e mute del dispositivo collegato tramite BLE HID.
+**Volumefy** è un controller con ESP32-C3 SuperMini, encoder KY-040 e trasmettitore infrarosso: regola volume e mute di un host Bluetooth LE oppure di TV, soundbar e impianti audio compatibili via IR. Il pannello web locale permette di scegliere il telecomando, salvare preferiti, provare i comandi e aggiornare il firmware.
 
-**Stato: firmware disponibile e compilazione verificata; collaudo hardware da eseguire.** Il codice recuperato dal progetto locale PlatformIO è in `src/main.cpp`. Documentazione, cablaggio e sito sono riuniti nello stesso repository. Il firmware locale è il riferimento per il comportamento attuale; le proposte della prima pubblicazione sono conservate come possibili evoluzioni in [TECHNICAL.md](TECHNICAL.md).
+[Sito e immagini](https://spacecdr.github.io/Volumefy/) · [Anteprima pannello](https://spacecdr.github.io/Volumefy/panel.html) · [Catalogo](CATALOG.md) · [Dettagli tecnici](TECHNICAL.md) · [Verifiche](TESTING.md)
 
-[Sito del progetto](https://spacecdr.github.io/Volumefy/) · [Descrizione tecnica](TECHNICAL.md) · [Piano di verifica](TESTING.md) · [Fonti e immagini](THIRD_PARTY.md)
+Questa pubblicazione aggiorna la precedente versione solo BLE con il firmware locale **BLE + IR, RC6 Philips e OTA web**. Il sorgente applicativo è copiato senza modifiche dal progetto PlatformIO aggiornato. Le prove software e quelle ancora necessarie sul dispositivo sono distinte in TESTING.md.
 
-![Schema funzionale dei collegamenti Volumefy](docs/images/wiring.svg)
+## Scopo
 
-## Funzionamento del firmware
+Portare il controllo essenziale dell'audio sulla scrivania o accanto al divano: ruotare per il volume, premere per il mute. In BLE invia comandi multimediali al computer o telefono associato; in IR controlla l'apparecchio selezionato nel catalogo. Non trasmette musica, non misura il volume dell'apparecchio e non apprende nuovi codici IR.
 
-| Azione o stato | Comportamento nel codice / verifica |
+## Comandi
+
+| Azione | Risultato |
 | --- | --- |
-| Ruota la manopola | Aumenta o diminuisce il volume |
-| Premi la manopola | Mute / unmute |
-| Associazione Bluetooth | Nome **Volumefy**; pairing gestito dalle librerie, da collaudare |
-| Disponibile per la connessione | LED cambia stato ogni secondo (ciclo completo di 2 s) |
-| Connesso | Impulso LED di 30 ms ogni 15 secondi |
-| 120 secondi senza uso | Sleep con radio spenta |
-| Premi durante lo sleep | Risveglio e nuova disponibilità Bluetooth |
-| Dispositivo precedente assente | Associazione gestita dalle librerie; da verificare con più host |
+| Ruotare l'encoder | Volume su/giù; verso invertito rispetto alla precedente versione BLE |
+| Pressione breve | Mute/unmute al rilascio |
+| Pressione di almeno 2 secondi | Salva il cambio BLE ↔ IR e riavvia |
+| 120 secondi senza attività | Deep sleep, anche se alimentato via USB |
+| Pressione durante lo sleep | Risveglio nella modalità memorizzata; il firmware attende il rilascio prima di accettare altri comandi |
 
-La riconnessione BLE è avviata dal computer o telefono: la conservazione delle chiavi e la disponibilità sono affidate alle librerie BLE, ma non può obbligare l'host a riconnettersi. La compatibilità effettiva con ciascun sistema operativo deve essere verificata.
+Le modalità sono **esclusive**: in BLE il Wi-Fi è spento; in IR sono attivi trasmettitore e access point Wi-Fi, mentre BLE non viene inizializzato. Al primo avvio senza impostazioni salvate parte in BLE, con nome `Volumefy`.
 
-## Hardware e cablaggio
+## Pannello web
 
-| Componente | Quantità | Ruolo |
-| --- | --- | --- |
-| ESP32-C3 SuperMini | 1 | Microcontrollore e radio Bluetooth LE |
-| KY-040 con pulsante | 1 | Encoder incrementale e mute |
-| Cavetti | 5 | Alimentazione e segnali |
-| Cavo USB-C | 1 | Alimentazione e programmazione |
+1. Passa alla modalità IR tenendo premuta la manopola per almeno 2 secondi.
+2. Collegati alla rete **Volumefy-Setup**, password predefinita **12345678**.
+3. Apri **http://192.168.4.1**. Il captive portal può aprirsi automaticamente; l'indirizzo diretto resta disponibile.
+4. Scegli **Tipo → Marca → Modello**, premi **Imposta come attivo** e prova volume e mute puntando l'emettitore verso l'apparecchio.
 
-| Pin KY-040 | Pin ESP32-C3 |
+Non serve un router né una connessione Internet. Il pannello non ha un login aggiuntivo: chi accede alla rete del dispositivo può cambiare impostazioni e caricare firmware. Il sito GitHub Pages è la presentazione pubblica; il pannello che controlla l'hardware è servito dall'ESP32.
+
+![Pannello Volumefy: schermata generata dal firmware con dati dimostrativi](docs/images/panel-desktop.png)
+
+- **Telecomando attivo:** marca, modello, tipo, stato e nota di compatibilità.
+- **Catalogo:** 125 profili, suddivisi in 101 TV, 20 soundbar e 4 audio; ricerca del modello all'interno di tipo e marca selezionati.
+- **Test:** tre pulsanti per VOL−, Mute e VOL+ del profilo attivo.
+- **Preferiti:** aggiunta/rimozione del profilo attivo e richiamo rapido di quelli salvati.
+- **Velocità IR 1×–6×:** regola le ripetizioni dei comandi volume; valore iniziale 2×. Non cambia la portante. Mute rimane una pressione logica e Sony conserva i frame minimi richiesti.
+- **OTA:** caricamento di `firmware.bin`, avanzamento, messaggi di esito e riavvio automatico dopo il successo.
+- **Memoria NVS:** modalità, profilo attivo, preferiti e velocità sopravvivono a spegnimento e deep sleep.
+
+La sola consultazione dei filtri, eseguita nel browser, non rinnova il timer di inattività del dispositivo. Dopo lo sleep, premi la manopola e ricollegati alla rete se necessario. Il timeout viene sospeso durante la scrittura OTA.
+
+## Compatibilità IR
+
+Sono implementati NEC/NEC extended, Samsung32, RC5, **RC6 Mode 0**, Sony SIRC 12 bit e RCA 24 bit. Il catalogo distingue `Verificato`, `Famiglia compatibile`, `TV Remote mode`, `Community` e `Da provare`: **125 voci non equivalgono a 125 dispositivi collaudati**. Molti modelli condividono gli stessi codici. Lo stato “Verificato” è quello assegnato dal firmware alle fonti dei codici, non una certificazione di collaudo del singolo apparecchio.
+
+Philips HTL3140B e HTL2163B/12 usano RC6 con address `0x10`: VOL+ `0x10`, VOL− `0x11`, Mute `0x0D`. Il profilo HTL3140B è derivato dalla cattura compatibile HTL2163B inclusa in `reference/`; sostituisce il precedente RC5. Consulta [CATALOG.md](CATALOG.md) per tutti i profili e le note.
+
+## Hardware
+
+| Componente | Funzione |
 | --- | --- |
-| CLK | GPIO 2 |
-| DT | GPIO 3 |
-| SW | GPIO 4 |
-| + | 3,3 V |
-| GND | GND |
+| ESP32-C3 SuperMini | Firmware, BLE HID, access point e web server |
+| Encoder KY-040 con pulsante | Volume, mute e cambio modalità |
+| Emettitore IR con stadio di pilotaggio | Invio dei comandi agli apparecchi |
+| USB-C, collegamenti e massa comune | Alimentazione e prima programmazione |
 
-Questo è il cablaggio comunicato per il prototipo. I segnali devono rimanere a 3,3 V. Verificare le resistenze di pull-up del modulo concreto, incluso SW: le varianti KY-040 non sono tutte identiche.
+| Segnale | Collegamento |
+| --- | --- |
+| Encoder CLK / DT / SW | GPIO2 / GPIO3 / GPIO4 |
+| Encoder + / GND | 3,3 V / GND |
+| Comando trasmettitore IR | GPIO5 |
+| LED integrato, attivo LOW | GPIO8 |
 
-GPIO2 è un pin di strapping. Una resistenza di pull-up non impedisce al contatto dell'encoder di portarlo basso: l'avvio va provato nelle diverse posizioni della manopola, inclusi reset e risveglio. Non considerare l'avvio garantito dal solo cablaggio. Il pin e la polarità del LED controllabile della SuperMini devono essere verificati sull'esemplare; il LED di alimentazione potrebbe non essere controllabile dal firmware.
+![Schema funzionale encoder, ESP32-C3 e uscita IR](docs/images/wiring.svg)
 
-## Uso via USB
+Un LED IR nudo richiede transistor/MOSFET e resistenza dimensionata per LED e alimentazione; un modulo deve accettare un comando logico a 3,3 V. Non collegare carichi IR di potenza direttamente al GPIO. Verificare pull-up dell'encoder a 3,3 V e avvio con GPIO2 nelle diverse posizioni: è un pin di strapping. Lo schema non è un pinout fisico né uno schema elettrico dimensionato.
 
-La porta USB integrata dell'ESP32-C3 è **Serial/JTAG a funzione fissa**, non USB HID programmabile. Il solo cavo non consente quindi il funzionamento diretto come tastiera multimediale USB. [Documentazione Espressif](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-guides/usb-serial-jtag-console.html).
+USB serve per alimentazione e programmazione. L'ESP32-C3 non offre HID USB nativo sulla periferica Serial/JTAG integrata ([Espressif](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-guides/usb-serial-jtag-console.html)). Il livello batteria BLE è fisso a 100, non misurato; non sono dichiarate autonomia o portata IR.
 
-Una possibile estensione è un ponte seriale sul computer che riceva gli eventi e regoli il volume, con implementazione specifica per sistema operativo. Questo ponte non è incluso. Per HID USB nativo insieme a BLE occorrerebbe invece rivedere l'hardware, per esempio usando un ESP32-S3.
+## Compilazione e aggiornamento
 
-## Foto e stato dei lavori
-
-Il sito include una foto del KY-040 fornita da Joy-IT, caricata dalla fonte originale e attribuita. È un'immagine di riferimento del componente, **non una foto del prototipo Volumefy**. Schema e rappresentazione della manopola sono illustrazioni. Non sono disponibili foto originali del montaggio in questa pubblicazione.
-
-Prossimi passi: verificare encoder e LED, provare pairing e riconnessione, misurare sleep e risveglio. Il [piano di verifica](TESTING.md) descrive le prove necessarie prima di dichiarare una release funzionante.
-
-## Compilazione e caricamento
-
-Apri la cartella del repository con PlatformIO oppure, con PlatformIO Core installato, esegui:
+Con PlatformIO Core installato:
 
 ```sh
 pio run -e esp32-c3-devkitm-1
 pio run -e esp32-c3-devkitm-1 -t upload
 ```
 
-Il primo comando compila; il secondo carica il firmware sulla scheda collegata. Se la porta non viene individuata automaticamente, aggiungi `--upload-port PORTA` al comando di caricamento. L'upload e il funzionamento sul prototipo non sono stati verificati durante questa integrazione.
+Aggiungi `--upload-port PORTA` se necessario. Il primo caricamento e la migrazione dalla versione solo BLE priva di OTA richiedono USB. È usata la tabella `default.csv` con due slot OTA.
 
-`platformio.ini` conserva il profilo `esp32-c3-devkitm-1` usato per la SuperMini nel progetto locale e fissa le versioni usate per la verifica: Espressif32 6.5.0, NimBLE-Arduino 1.4.3 e ESP32 BLE Keyboard al commit `b7aaf9bb711a04216e4417f1e2a6b0ee0eaeaf66`. `USE_NIMBLE` è definito nei flag per tutti i sorgenti.
+Per gli aggiornamenti successivi, entra nel pannello in modalità IR, scegli `.pio/build/esp32-c3-devkitm-1/firmware.bin` e premi **Aggiorna firmware**. Mantieni alimentazione e collegamento durante l'upload. In BLE l'OTA web non è disponibile.
 
-## Cosa fa il codice attuale
+Dipendenze dirette fissate: Espressif32 6.5.0, NimBLE-Arduino 1.4.3, IRremoteESP8266 2.9.0 ed ESP32 BLE Keyboard al commit indicato in `platformio.ini`. Non è pubblicata una release binaria.
 
-- Legge CLK su GPIO2 e DT su GPIO3; a ogni fronte di discesa di CLK invia volume su o giù se BLE è connesso. Non usa una macchina a stati antirimbalzo.
-- Legge SW su GPIO4 e invia mute alla pressione, con un intervallo minimo di 200 ms tra gli eventi accettati.
-- Usa il LED su GPIO8, attivo basso: scollegato cambia stato ogni secondo (ciclo acceso/spento di 2 s); collegato genera un impulso di 30 ms ogni 15 s.
-- Entra in deep sleep dopo 120 s senza eventi accettati di rotazione o pressione e configura il risveglio quando SW è basso. Il rilascio prima dello sleep e il consumo della prima pressione al risveglio non sono gestiti esplicitamente.
-- Annuncia `Volumefy`; associazione e riconnessione sono affidate alle librerie BLE. Il valore batteria esposto è fisso a 100, non una misura.
+## Materiali e continuità
 
-Il comportamento è ricavato dai sorgenti e non sostituisce il collaudo. Il lampeggio connesso usa `delay(30)`, quindi la lettura dell'encoder si interrompe brevemente durante l'impulso.
+`src/` e `platformio.ini` contengono il firmware; `reference/` la cattura Philips; `docs/` il sito e l'anteprima del pannello; `tools/render_panel.py` rigenera l'anteprima dal C++ con un adattatore host. `TECHNICAL.md`, `CATALOG.md`, `TESTING.md` e `HANDOFF.md` documentano implementazione, compatibilità e stato.
 
-## Contenuto
-
-- `src/main.cpp`: firmware recuperato dal progetto locale.
-- `platformio.ini`: configurazione e dipendenze di compilazione.
-- `TECHNICAL.md`: implementazione attuale, vincoli e possibili evoluzioni.
-- `TESTING.md`: criteri di accettazione e stato delle verifiche.
-- `docs/`: sito statico GitHub Pages e schema SVG.
-- `THIRD_PARTY.md`: provenienza immagini e riferimenti.
-
-Non è ancora scelta una licenza di riutilizzo per i materiali originali. La pubblicazione non attribuisce una licenza alle immagini di terzi.
+Foto del KY-040 attribuita a Joy-IT; schermate del pannello generate dal codice con dati dimostrativi; illustrazioni dichiarate. Non sono disponibili foto originali del prototipo in questa pubblicazione. Fonti e diritti in [THIRD_PARTY.md](THIRD_PARTY.md). Nessuna licenza di riutilizzo è stata scelta per i materiali originali.

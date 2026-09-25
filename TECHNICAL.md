@@ -1,71 +1,63 @@
-# Descrizione tecnica
+# Volumefy · implementazione BLE + IR
 
-## Stato e obiettivo
+Il riferimento è `src/main.cpp`, copiato dal progetto locale aggiornato. La vecchia documentazione solo BLE è superata; la cronologia Git conserva le versioni precedenti. Questa descrizione riguarda il comportamento del codice, non un collaudo fisico.
 
-Il firmware locale è ora incluso in `src/main.cpp`, con configurazione in `platformio.ini`. La compilazione è verificata; installazione e comportamento sul prototipo non sono stati collaudati durante l'integrazione. Non è pubblicata una release binaria.
+## Stati, ingressi e memoria
 
-## Implementazione attuale
+- `MODE_BLE`: Wi-Fi spento e GPIO5 basso; `BleKeyboard("Volumefy", "Custom", 100)` su NimBLE. Volume/mute inviati solo quando connesso. Associazione e riconnessione dipendono anche dall'host; nessuna priorità personalizzata fra host. Il valore batteria è statico.
+- `MODE_IR`: BLE non inizializzato, `IRsend` su GPIO5, access point `Volumefy-Setup`, DNS captive portal e HTTP sulla porta 80. Nessuna rete domestica richiesta.
+- Cambio modalità: pressione ≥2.000 ms, salvataggio in NVS e riavvio, con impulso LED di 80 ms. Le radio non vengono usate contemporaneamente.
+- Encoder: polling del fronte di discesa CLK su GPIO2, DT su GPIO3 per il verso. `DT != CLK` invia volume giù, direzione invertita rispetto al vecchio codice. Non è implementato un filtro completo in quadratura.
+- Pulsante: GPIO4 con pull-up, debounce 30 ms. Pressione breve invia mute al rilascio; la lunga non genera mute. All'avvio con SW basso, i comandi sono disarmati fino al rilascio.
+- NVS, namespace `volumefy`: `mode`, `remote`, `favBits`, `irRepeat`. Default BLE, profilo 0 e ripetizione 2×. I primi sette indici del catalogo precedente sono conservati; 125 profili occupano 16 byte di bitset preferiti.
 
-| Area | Codice attuale | Verifica o possibile evoluzione |
-| --- | --- | --- |
-| Encoder | Fronte di discesa CLK e lettura DT, polling | Precisione degli scatti da collaudare; filtro in quadratura valutabile se necessario |
-| Pulsante | Fronte di pressione, intervallo minimo di 200 ms | Stabilità del contatto e un evento per pressione da collaudare |
-| BLE | `BleKeyboard("Volumefy", "Custom", 100)`, backend NimBLE; `write()` per volume/mute solo se connesso | Pairing, bonding, sottoscrizioni e riconnessione da provare sugli host; nessuna gestione personalizzata dei bond |
-| LED scollegato | GPIO8 attivo basso, inversione ogni 1 s | Ciclo completo di 2 s; la prima specifica proponeva un impulso ogni 1 s |
-| LED connesso | Impulso di 30 ms ogni 15 s, con `delay(30)` | Temporizzazione non bloccante valutabile se si perdono eventi |
-| Sleep | Dopo 120 s di inattività, LED spento, wake GPIO4 basso | Non attende il rilascio di SW e non arresta esplicitamente BLE prima di dormire |
-| Wake | Riavvio di `setup()` e dello stack BLE | Prima pressione non consumata esplicitamente; bias di SW durante lo sleep da verificare |
+## Sleep e LED
 
-Il valore batteria 100 è costante e non proviene da una misura. Il firmware non accoda gli eventi inviati mentre BLE è scollegato. I timer usano differenze di `millis()`; il ciclo principale include `delay(1)`. Non sono stati cambiati cablaggio o logica applicativa durante il recupero. La sola definizione duplicata di `USE_NIMBLE` è stata rimossa dal sorgente: rimane nei flag globali di compilazione.
+Deep sleep dopo 120.000 ms senza attività. Rotazione, pressione e richieste web gestite aggiornano il timer. I filtri client-side non generano richieste e non tengono sveglio il dispositivo. Durante upload OTA o riavvio OTA pendente il timeout è sospeso. In IR vengono chiusi DNS e AP; wake su GPIO4 LOW e ripristino della modalità salvata. Non è dichiarato un consumo misurato.
 
-## Proposte della pubblicazione iniziale
+| Stato | LED GPIO8, attivo LOW |
+| --- | --- |
+| BLE non connesso | Cambio di stato ogni 1 s, ciclo completo 2 s |
+| BLE connesso | Impulso 30 ms ogni 15 s |
+| IR/AP | Impulso 30 ms ogni 5 s |
+| Deep sleep | LED controllabile spento |
 
-Le sezioni seguenti conservano le proposte scritte quando i sorgenti locali non erano stati individuati. Sono ipotesi di evoluzione, non requisiti autorevoli rispetto al firmware recuperato né modifiche approvate. Il codice locale e la tabella sopra sono il riferimento per il comportamento attuale. Un filtro più articolato o una diversa gestione LED/sleep si valuteranno solo in base alle necessità emerse dall'uso.
+I `delay(30)` degli impulsi e le trasmissioni IR sono bloccanti: verificare eventuali scatti persi nelle rotazioni rapide.
 
-Volumefy invierà comandi multimediali al sistema operativo: non trasmetterà audio e non sarà una cassa Bluetooth. L'architettura proposta usa ESP32-C3 come periferica BLE HID e il computer/telefono come central.
+## Invio IR
 
-## Acquisizione encoder
+| Famiglia | Implementazione |
+| --- | --- |
+| NEC / NEC extended | `encodeNEC` e `sendNEC` |
+| Samsung32 | `encodeSAMSUNG` e `sendSAMSUNG` |
+| RC5 | Toggle tra pressioni logiche successive |
+| RC6 Mode 0 | 20 bit, toggle tra pressioni; stesso toggle nei repeat |
+| Sony SIRC | 12 bit; almeno 3 frame per pressione |
+| RCA | Invio generico a 24 bit e portante 58 kHz |
 
-CLK e DT formano una coppia di segnali in quadratura. Una macchina a stati dovrà validare le transizioni dei due bit, accumularle fino a uno scatto completo e scartare i salti non validi. Questo limita gli effetti dei rimbalzi meccanici. Il numero di transizioni per scatto e il verso vanno verificati sul KY-040 montato.
+La velocità 1×–6× imposta `irVolumeRepeat`: per i comandi volume i repeat aggiuntivi sono `valore - 1`; Sony usa `2 + valore - 1` per conservare il minimo del protocollo. Mute non usa l'accelerazione. La portante resta quella del protocollo. Non è un moltiplicatore garantito del volume percepito: la risposta dipende dall'apparecchio.
 
-Il pulsante SW richiede debounce separato e un evento singolo per pressione: tenerlo premuto non deve alternare continuamente il mute. La proposta prevede di consumare la prima pressione dopo lo sleep per il solo risveglio, attendendo il rilascio prima di accettare un nuovo mute.
+125 profili: 101 TV, 20 soundbar, 4 audio. Il catalogo contiene alias e famiglie: leggere stato e nota, poi provare il dispositivo. Philips HTL3140B e HTL2163B/12 usano RC6 address `0x10`, comandi `0x10 / 0x11 / 0x0D`. La cattura di riferimento è in `reference/Philips_HTL2163_Soundbar.ir`.
 
-Rotazione valida e pressione valida devono aggiornare il timer di inattività. Lampeggi, pacchetti BLE e diagnostica non devono mantenerlo sveglio. I tempi devono essere gestiti senza attese bloccanti.
+## Web e OTA
 
-## Report Bluetooth
+| Metodo e percorso | Funzione |
+| --- | --- |
+| GET `/` | Pannello HTML, catalogo e filtri JavaScript |
+| GET `/activate?id=N` | Salva profilo attivo |
+| GET `/favorite?id=N` | Alterna stato preferito |
+| GET `/irspeed?value=N` | Limita e salva velocità a 1–6 |
+| GET `/test?action=up`, `down` o `mute` | Invia comando del profilo attivo |
+| POST `/update` | Caricamento multipart del firmware applicativo |
 
-Il servizio HID over GATT dovrà esporre un report Consumer Control con gli usi Volume Increment, Volume Decrement e Mute. Ogni evento richiede pressione e successivo rilascio del comando, per evitare tasti bloccati. I report devono essere inviati solo dopo la preparazione del collegamento e delle sottoscrizioni dell'host. Gli eventi generati senza collegamento non vanno accumulati per poi produrre una raffica alla riconnessione.
+L'interfaccia ha filtri Tipo → Marca → Modello, ricerca nel sottoinsieme selezionato, stato e nota, preferiti, tre test, slider e OTA con progress bar. DNS e percorsi comuni captive portal riportano alla home.
 
-Il nome annunciato è `Volumefy`. È previsto pairing Just Works: bonding persistente, nessuna capacità di input/output per un codice, nessuna richiesta di PIN da parte del firmware. Il sistema operativo può comunque mostrare il proprio dialogo di associazione. Just Works non offre protezione autenticata contro un intermediario durante il primo pairing.
+L'OTA usa `Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)`, scrittura a blocchi e `Update.end(true)`. L'esito positivo restituisce HTTP 200 e programma il riavvio dopo 1.200 ms; errore HTTP 500, upload interrotto con `Update.abort()`. Non è implementata una verifica firmata dell'autore del firmware o un rollback applicativo automatico. Password AP predefinita pubblica, HTTP senza login aggiuntivo: l'accesso alla rete consente controllo e OTA. Configurazione OTA a due slot in `default.csv`.
 
-## Riconnessione e visibilità
+La migrazione dal firmware solo BLE richiede caricamento via USB. Il pannello pubblico `docs/panel.html` è generato da `handleRoot()` usando un adattatore C++ host: stato di esempio Philips HTL3140B, due preferiti, velocità 2×. Filtri e slider sono esplorabili; richieste all'hardware e upload sono intercettati e non inviati. Non simula il backend né dimostra una prova hardware.
 
-La proposta iniziale usa advertising connettibile aperto: un host già associato può riconnettersi con le chiavi salvate, e un nuovo host può fare pairing quando non c'è una connessione attiva. Una connessione alla volta.
+## Hardware e limiti
 
-Questa scelta permette il recupero del vecchio host e l'associazione con uno nuovo, ma **non garantisce priorità esclusiva all'ultimo host** se più dispositivi tentano insieme. Un'eventuale finestra iniziale riservata all'ultimo host, con successiva apertura, è una decisione da implementare e collaudare. Un peripheral BLE non può stabilire da solo se l'ultimo host è fuori portata: l'assenza di un tentativo di connessione non ne prova la distanza.
+CLK2, DT3, SW4, comando IR5, LED8 attivo LOW; encoder alimentato a 3,3 V e massa comune. Verificare strapping GPIO2, pull-up e LED della variante SuperMini. Usare un modulo IR compatibile o uno stadio transistor/MOSFET con resistenza dimensionata per un LED nudo.
 
-Bond e identità devono sopravvivere a reset e deep sleep. La gestione di chiavi scadute, numero massimo di host memorizzati e cancellazione delle associazioni resta da definire nel firmware; non cancellare indiscriminatamente i bond a ogni disconnessione.
-
-## Stati e tempi richiesti
-
-| Stato | Radio | LED | Uscita |
-| --- | --- | --- | --- |
-| Disponibile | Advertising connettibile | Un impulso ogni 1 s | Connessione oppure 120 s di inattività |
-| Connesso | BLE attivo | Un impulso ogni 15 s | Disconnessione oppure 120 s di inattività |
-| Sleep | Spenta | LED controllabile spento | Pulsante SW |
-
-La durata dell'impulso luminoso non è stata specificata: 100 ms è una proposta da validare visivamente. Il periodo indica la distanza fra gli inizi dei lampeggi.
-
-Per il risparmio è proposto il deep sleep con wake su livello basso di GPIO4. Prima di dormire occorre attendere il rilascio del tasto, disattivare correttamente BLE e configurare il pull-up che mantenga SW stabile anche durante lo sleep. Al risveglio vengono ricreati servizio HID e advertising mantenendo l'identità. Il timer riparte al risveglio, così l'utente ha tempo per riconnettersi.
-
-Il deep sleep interrompe il collegamento BLE e può far scomparire la porta USB. Il consumo dell'intera scheda dipende anche da regolatore, LED di alimentazione e pull-up dell'encoder; non è equivalente al valore minimo del solo chip. Non sono dichiarate autonomia o correnti misurate. [Sleep ESP32-C3](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/system/sleep_modes.html).
-
-## Vincoli elettrici e hardware
-
-Il chip ESP32-C3 dispone di CPU RISC-V fino a 160 MHz e Bluetooth LE; non offre Bluetooth Classic. Capacità flash, dimensioni, LED e assorbimento della SuperMini vanno verificati sulla variante acquistata. [Datasheet Espressif](https://documentation.espressif.com/esp32-c3_datasheet_en.html).
-
-GPIO2 partecipa allo strapping: verificare l'avvio con CLK sia alto sia basso, senza dedurre che basti evitare la rotazione durante l'accensione. SW su GPIO4 è la sorgente di wake proposta; verificarne il funzionamento e il bias elettrico durante lo sleep. Alimentazione KY-040 a 3,3 V e massa comune, senza pull-up dei segnali verso 5 V.
-
-## Estensione USB
-
-La periferica USB Serial/JTAG integrata ha funzioni fisse e non espone report HID personalizzati. Un eventuale ponte software dovrà definire protocollo seriale, riconoscimento del dispositivo, gestione delle riconnessioni e arbitraggio USB/BLE per evitare doppi eventi. Non è parte della versione documentale pubblicata. [USB ESP32-C3](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-guides/usb-serial-jtag-console.html).
+Il dispositivo invia comandi senza feedback sul volume e senza apprendimento IR. L'USB Serial/JTAG integrata del C3 non è USB HID ([Espressif](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-guides/usb-serial-jtag-console.html)). Corrente, autonomia, portata, precisione encoder e compatibilità effettiva richiedono prove sul dispositivo.

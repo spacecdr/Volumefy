@@ -17,3 +17,12 @@ Le librerie sono scaricate da PlatformIO, non copiate nel repository:
 
 Per licenze e attribuzioni delle dipendenze consultare i rispettivi repository.
 Non sono inclusi log, backup flash o dati di associazione. Nessuna licenza di riutilizzo è stata scelta per i materiali originali.
+
+## Aggiornamento BLE + IR
+
+- [IRremoteESP8266 2.9.0](https://github.com/crankyoldgit/IRremoteESP8266/tree/v2.9.0): codifica e invio IR, dipendenza gestita da PlatformIO.
+- `reference/Philips_HTL2163_Soundbar.ir`: cattura già presente nel progetto locale fornito dall'autore; usata dai profili Philips RC6. Non viene attribuita una licenza aggiuntiva alla cattura.
+- `docs/images/panel-desktop.png` e `panel-ota.png`: schermate del pannello HTML generato dal sorgente `handleRoot()` attraverso `tools/render_panel.py`, renderizzate in Chromium con stato dimostrativo (Philips HTL3140B, due preferiti, velocità 2×). Non sono fotografie né prove di connessione a un ESP32.
+- `docs/panel.html`: stessa interfaccia con nota di anteprima e blocco delle azioni verso il dispositivo. Non carica firmware e non invia comandi IR.
+- `docs/images/wiring.svg`: schema originale aggiornato con GPIO5, stadio di pilotaggio e uscita IR. È funzionale, non un circuito dimensionato o un pinout fisico.
+- La fotografia KY-040 resta caricata dal server Joy-IT con attribuzione, come nella pubblicazione precedente. Non sono state create foto sintetiche del prototipo.

@@ -1,28 +1,38 @@
-# Verifiche
+# Verifiche · BLE + IR e OTA
 
-Stato: **firmware recuperato e compilazione verificata il 25 settembre 2026; nessun collaudo hardware eseguito durante l'integrazione**.
+Aggiornamento del 25 settembre 2026. Il sorgente applicativo pubblico è identico a quello del progetto locale aggiornato. Nessun upload o collaudo fisico è stato eseguito durante questa pubblicazione.
 
-Verifica: `pio run -e esp32-c3-devkitm-1` da copia di lavoro del repository, senza artefatti di compilazione preesistenti. Espressif32 6.5.0, Arduino-ESP32 2.0.14, toolchain RISC-V 8.4.0+2021r2-patch5, NimBLE-Arduino 1.4.3, ESP32 BLE Keyboard commit `b7aaf9bb711a04216e4417f1e2a6b0ee0eaeaf66`. Il dettaglio delle dipendenze dirette è fissato in `platformio.ini`. I tool di piattaforma erano già installati: non è una verifica di installazione su macchina nuova.
+## Compilazione
 
-Build riuscita: RAM 23.532 byte (7,2%), flash 511.734 byte (39,0%). Presente un warning nel core Arduino esterno (`esp32-hal-uart.c`, ritorno senza valore in `uartSetPins`); nessun errore di compilazione.
+Configurazione: Espressif32 6.5.0, Arduino-ESP32 2.0.14, NimBLE-Arduino 1.4.3, IRremoteESP8266 2.9.0, ESP32 BLE Keyboard commit `b7aaf9bb711a04216e4417f1e2a6b0ee0eaeaf66`, tabella OTA `default.csv`.
 
-Quella che segue distingue la compilazione dalle prove ancora da eseguire sul dispositivo. I criteri seguono il firmware recuperato; le proposte della documentazione iniziale non sono considerate funzioni obbligatorie mancanti.
+La compilazione locale è stata bloccata prima della compilazione C++ dalla toolchain Intel GCC 8 (`Bad CPU type in executable`) sul Mac ARM. La precedente build solo BLE non valida il firmware aggiornato. Per verificare il codice aggiornato è stato aggiunto il workflow Linux [Firmware](https://github.com/spacecdr/Volumefy/actions/workflows/firmware.yml), che esegue `pio run -e esp32-c3-devkitm-1`.
 
-| Prova | Criterio di accettazione | Stato |
-| --- | --- | --- |
-| Compilazione | Dipendenze dirette fissate; build senza artefatti preesistenti | Superata |
-| Encoder lento/veloce | Conteggio coerente per scatto nei due versi, nessuna inversione spuria | Da eseguire |
-| Pulsante | Un solo mute per pressione, nessuna ripetizione se tenuto | Da eseguire |
-| Pairing nuovo | Nome Volumefy; nessun codice; HID riconosciuto dall'host | Da eseguire |
-| Volume/mute | Ricezione nativa dei report e risposta del sistema operativo | Da eseguire |
-| LED discovery | Cambio di stato ogni 1 s, ciclo completo di 2 s | Da eseguire |
-| LED collegato | Un impulso di 30 ms ogni 15 s | Da eseguire |
-| Inattività | Sleep dopo 120 s senza rotazione o pressione, anche sotto USB | Da eseguire |
-| Wake | SW risveglia; registrare eventuale mute alla prima pressione | Da eseguire |
-| Riconnessione | Bond conservato; host precedente può riconnettersi | Da eseguire |
-| Nuovo host | Dopo assenza del precedente, nuovo pairing possibile | Da eseguire |
-| Reset e strapping | Avvio con encoder nelle diverse posizioni, pulsante premuto/rilasciato | Da eseguire |
-| Consumo | Corrente dell'intera scheda misurata in discovery, connessione e sleep | Da eseguire |
-| Sistemi operativi | macOS, Windows, Linux e dispositivi mobili verificati separatamente | Da eseguire |
+## Sito e anteprima
 
-Una simulazione di eventi non prova i rimbalzi del contatto fisico. Una connessione GATT non prova la ricezione dei comandi multimediali. Registrare separatamente test automatici, osservazioni hardware e comportamento dell'host.
+Il generatore `python3 tools/render_panel.py` compila un adattatore C++17 host ed esegue il vero `handleRoot()` con stato dimostrativo. Questo verifica il rendering HTML, non la compilazione per ESP32 o il backend.
+
+Verifiche browser: filtri tipo/marca, ricerca OLED, ricerca senza risultati, modelli Philips, slider a 6×, intercettazione attivazione/test/salvataggio/OTA senza richieste hardware, immagini locali, ancore, assenza di overflow a 1440/390/320 pixel e assenza di errori JavaScript. Le schermate sono renderizzate con Chrome, senza dispositivo connesso.
+
+Catalogo ricontato dal sorgente: **125 = 101 TV + 20 soundbar + 4 audio**. Conteggio e indici allineati in CATALOG.md, README e sito.
+
+## Collaudo hardware da eseguire
+
+| Prova | Criterio |
+| --- | --- |
+| Encoder | Verificare verso, rotazione lenta/rapida, rimbalzi e scatti persi durante invio IR o impulsi LED |
+| Breve/lunga | Un mute al rilascio breve; ≥2 s commuta e riavvia senza mute aggiuntivo |
+| BLE | Pairing, report volume/mute e riconnessione verificati su ogni host di interesse |
+| Esclusione modalità | BLE con Wi-Fi spento; IR/AP senza BLE |
+| AP e pannello | Accesso diretto, captive portal, selezione profilo, test, preferiti e velocità |
+| IR | VOL+/VOL−/Mute sui dispositivi reali, con stato del catalogo annotato |
+| Philips RC6 | HTL3140B/HTL2163B: comandi e toggle fra pressioni, repeat coerenti |
+| Velocità | Risposta 1×–6× e singolo mute; minimo SIRC preservato |
+| NVS | Modalità, profilo, preferiti e velocità recuperati dopo riavvio, spegnimento e sleep |
+| Sleep/wake | Timeout120s, SW risveglia, rilascio prima di nuovi comandi |
+| LED | BLE ricerca1s, connesso15s, IR5s, impulsi30ms dove previsti |
+| OTA | Firmware compatibile installato, esito e riavvio; timeout sospeso; errore/abort gestiti |
+| Avvio | Reset e accensione in diverse posizioni encoder; verifica strapping GPIO2 |
+| Elettrica | Pull-up3,3V, stadio IR, corrente scheda e portata misurati |
+
+Lo stato “Verificato” nel catalogo riguarda le fonti/codici secondo il firmware e non sostituisce queste prove.
