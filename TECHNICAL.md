@@ -2,7 +2,25 @@
 
 ## Stato e obiettivo
 
-Questo documento distingue i requisiti del progetto dalle scelte proposte per il futuro firmware. Nessuna delle procedure qui descritte è ancora verificata sul prototipo. Non è disponibile una build da installare.
+Il firmware locale è ora incluso in `src/main.cpp`, con configurazione in `platformio.ini`. La compilazione è verificata; installazione e comportamento sul prototipo non sono stati collaudati durante l'integrazione. Non è pubblicata una release binaria.
+
+## Implementazione attuale
+
+| Area | Codice attuale | Verifica o possibile evoluzione |
+| --- | --- | --- |
+| Encoder | Fronte di discesa CLK e lettura DT, polling | Precisione degli scatti da collaudare; filtro in quadratura valutabile se necessario |
+| Pulsante | Fronte di pressione, intervallo minimo di 200 ms | Stabilità del contatto e un evento per pressione da collaudare |
+| BLE | `BleKeyboard("Volumefy", "Custom", 100)`, backend NimBLE; `write()` per volume/mute solo se connesso | Pairing, bonding, sottoscrizioni e riconnessione da provare sugli host; nessuna gestione personalizzata dei bond |
+| LED scollegato | GPIO8 attivo basso, inversione ogni 1 s | Ciclo completo di 2 s; la prima specifica proponeva un impulso ogni 1 s |
+| LED connesso | Impulso di 30 ms ogni 15 s, con `delay(30)` | Temporizzazione non bloccante valutabile se si perdono eventi |
+| Sleep | Dopo 120 s di inattività, LED spento, wake GPIO4 basso | Non attende il rilascio di SW e non arresta esplicitamente BLE prima di dormire |
+| Wake | Riavvio di `setup()` e dello stack BLE | Prima pressione non consumata esplicitamente; bias di SW durante lo sleep da verificare |
+
+Il valore batteria 100 è costante e non proviene da una misura. Il firmware non accoda gli eventi inviati mentre BLE è scollegato. I timer usano differenze di `millis()`; il ciclo principale include `delay(1)`. Non sono stati cambiati cablaggio o logica applicativa durante il recupero. La sola definizione duplicata di `USE_NIMBLE` è stata rimossa dal sorgente: rimane nei flag globali di compilazione.
+
+## Proposte della pubblicazione iniziale
+
+Le sezioni seguenti conservano le proposte scritte quando i sorgenti locali non erano stati individuati. Sono ipotesi di evoluzione, non requisiti autorevoli rispetto al firmware recuperato né modifiche approvate. Il codice locale e la tabella sopra sono il riferimento per il comportamento attuale. Un filtro più articolato o una diversa gestione LED/sleep si valuteranno solo in base alle necessità emerse dall'uso.
 
 Volumefy invierà comandi multimediali al sistema operativo: non trasmetterà audio e non sarà una cassa Bluetooth. L'architettura proposta usa ESP32-C3 come periferica BLE HID e il computer/telefono come central.
 

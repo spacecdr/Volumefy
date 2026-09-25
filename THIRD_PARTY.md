@@ -7,4 +7,13 @@
 - [USB Serial/JTAG](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-guides/usb-serial-jtag-console.html): limiti della periferica USB.
 - [Sleep modes](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/system/sleep_modes.html): sonno, radio e sorgenti di risveglio.
 
-Non sono inclusi firmware di terzi, log, backup flash o dati di associazione. Nessuna licenza di riutilizzo è stata scelta per i materiali originali.
+## Dipendenze firmware
+
+Le librerie sono scaricate da PlatformIO, non copiate nel repository:
+
+- [ESP32 BLE Keyboard](https://github.com/T-vK/ESP32-BLE-Keyboard/tree/b7aaf9bb711a04216e4417f1e2a6b0ee0eaeaf66), backend BLE HID.
+- [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino/tree/1.4.3), stack BLE.
+- [Espressif32 per PlatformIO](https://github.com/platformio/platform-espressif32/tree/v6.5.0), piattaforma di compilazione Arduino-ESP32.
+
+Per licenze e attribuzioni delle dipendenze consultare i rispettivi repository.
+Non sono inclusi log, backup flash o dati di associazione. Nessuna licenza di riutilizzo è stata scelta per i materiali originali.
