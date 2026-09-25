@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="520" viewBox="0 0 1000 520" role="img" aria-labelledby="title desc">
+<title id="title">Volumefy: collegamenti KY-040 ed ESP32-C3 SuperMini</title><desc id="desc">CLK a GPIO2, DT a GPIO3, SW a GPIO4, positivo a 3,3 volt e GND a GND. Schema funzionale, non pinout fisico.</desc>
+<rect width="1000" height="520" rx="24" fill="#101922"/>
+<g font-family="sans-serif" fill="#edf3f6"><text x="50" y="58" font-size="28" font-weight="bold">Cinque fili. Un controllo.</text><text x="50" y="91" font-size="17" fill="#a8bac5">Schema funzionale · le posizioni non indicano il pinout fisico</text>
+<rect x="50" y="135" width="260" height="305" rx="18" fill="#23313c"/><rect x="690" y="135" width="260" height="305" rx="18" fill="#23313c"/>
+<text x="75" y="177" font-size="24">KY-040</text><text x="715" y="171" font-size="21">ESP32-C3</text><text x="715" y="197" font-size="17" fill="#a8bac5">SuperMini</text>
+<g font-size="20"><text x="240" y="236">CLK</text><text x="240" y="278">DT</text><text x="240" y="320">SW</text><text x="240" y="362">+</text><text x="240" y="404">GND</text><text x="715" y="236">GPIO 2</text><text x="715" y="278">GPIO 3</text><text x="715" y="320">GPIO 4</text><text x="715" y="362">3,3 V</text><text x="715" y="404">GND</text></g>
+<circle cx="142" cy="305" r="63" fill="#152029" stroke="#506778" stroke-width="4"/><path d="M142 254v25" stroke="#d4f677" stroke-width="6" stroke-linecap="round"/>
+<text x="50" y="481" font-size="17" fill="#a8bac5">GPIO2: verificare lo strapping all'avvio · Segnali e pull-up a 3,3 V</text></g>
+<g fill="none" stroke-width="5"><path d="M310 230H690" stroke="#d4f677"/><path d="M310 272H690" stroke="#66d9ce"/><path d="M310 314H690" stroke="#c1a0ff"/><path d="M310 356H690" stroke="#ff927e"/><path d="M310 398H690" stroke="#a8bac5"/></g></svg>
